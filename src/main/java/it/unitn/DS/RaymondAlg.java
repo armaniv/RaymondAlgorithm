@@ -2,10 +2,8 @@ package it.unitn.DS;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
-
 import java.io.IOException;
-
-import it.unitn.DS.Node.JoinTreeMsg;
+import it.unitn.DS.Node.*;
 
 public class RaymondAlg {
 
@@ -33,25 +31,22 @@ public class RaymondAlg {
 
         SendJoinMessage(tree_root);
 
-        /*
+        node2.tell(new StartInitializationMsg(), null);     // set node 2 as the initial privileged one
+
+
         try {
             System.out.println(">>> Press ENTER to exit <<<");
-
             System.in.read();
         }
-        catch (IOException ioe) {}*/
+        catch (IOException ioe) {}
 
         system.terminate();
     }
 
-    private static <T> void SendJoinMessage(Tree<ActorRef> node) {
+    // traverse the tree
+    private static void SendJoinMessage(Tree<ActorRef> node) {
         JoinTreeMsg join = new JoinTreeMsg(node);
         node.getData().tell(join, null);
         node.getChildren().forEach(each -> SendJoinMessage(each));
-    }
-
-    private static <T> void printTree(Tree<T> node) {
-        System.out.println(node.getData().toString());
-        node.getChildren().forEach(each -> printTree(each));
     }
 }
