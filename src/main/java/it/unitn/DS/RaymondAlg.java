@@ -2,7 +2,9 @@ package it.unitn.DS;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
+
 import java.io.IOException;
+
 import it.unitn.DS.Node.*;
 
 public class RaymondAlg {
@@ -11,6 +13,7 @@ public class RaymondAlg {
         // Create the actor system
         final ActorSystem system = ActorSystem.create("Raymond");
 
+        // Create the actors
         final ActorRef node1 = system.actorOf(Node.props(1));
         final ActorRef node2 = system.actorOf(Node.props(2));
         final ActorRef node3 = system.actorOf(Node.props(3));
@@ -19,8 +22,7 @@ public class RaymondAlg {
         final ActorRef node6 = system.actorOf(Node.props(6));
         final ActorRef node7 = system.actorOf(Node.props(7));
 
-
-        // initialize a tree like the one in Fig.7 pag 71 of 'A Tree-Based Algorithm for Distributed Mutual Exclusion'
+        // Create a tree
         Tree<ActorRef> tree_root = new Tree<ActorRef>(node1);
         Tree<ActorRef> tree_n2 = tree_root.addChild(new Tree<>(node2));
         Tree<ActorRef> tree_n3 = tree_root.addChild(new Tree<>(node3));
@@ -29,21 +31,26 @@ public class RaymondAlg {
         Tree<ActorRef> tree_n6 = tree_n3.addChild(new Tree<>(node6));
         Tree<ActorRef> tree_n7 = tree_n3.addChild(new Tree<>(node7));
 
-        SendJoinMessage(tree_root);
+        SendJoinMessage(tree_root);  // send local information about the tree to everyon
 
-        node2.tell(new StartInitializationMsg(), null);     // set node 2 as the initial privileged one
-
+        node2.tell(new StartInitializationMsg(), null);     // set a node as the initial privileged one
 
         try {
             System.out.println(">>> Press ENTER to exit <<<");
             System.in.read();
+
+            node2.tell(new StartRequestMsg(), null);
+            node5.tell(new StartRequestMsg(), null);
+            node4.tell(new StartRequestMsg(), null);
+
+            System.in.read();
+        } catch (IOException ioe) {
         }
-        catch (IOException ioe) {}
 
         system.terminate();
     }
 
-    // traverse the tree
+    // Send local information about the tree, traversing it
     private static void SendJoinMessage(Tree<ActorRef> node) {
         JoinTreeMsg join = new JoinTreeMsg(node);
         node.getData().tell(join, null);
