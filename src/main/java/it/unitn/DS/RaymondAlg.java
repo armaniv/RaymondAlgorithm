@@ -21,30 +21,44 @@ public class RaymondAlg {
         final ActorRef node5 = system.actorOf(Node.props(5));
         final ActorRef node6 = system.actorOf(Node.props(6));
         final ActorRef node7 = system.actorOf(Node.props(7));
+        final ActorRef node8 = system.actorOf(Node.props(8));
+        final ActorRef node9 = system.actorOf(Node.props(9));
+        final ActorRef node10 = system.actorOf(Node.props(10));
 
-        // Create a tree
-        Tree<ActorRef> tree_root = new Tree<ActorRef>(node1);
+        // Create a tree (like the one in Fig 7 pag 71)
+        Tree<ActorRef> tree_root = new Tree<>(node1);
         Tree<ActorRef> tree_n2 = tree_root.addChild(new Tree<>(node2));
         Tree<ActorRef> tree_n3 = tree_root.addChild(new Tree<>(node3));
-        Tree<ActorRef> tree_n4 = tree_n2.addChild(new Tree<>(node4));
+        Tree<ActorRef> tree_n4 = tree_root.addChild(new Tree<>(node4));
         Tree<ActorRef> tree_n5 = tree_n2.addChild(new Tree<>(node5));
-        Tree<ActorRef> tree_n6 = tree_n3.addChild(new Tree<>(node6));
+        Tree<ActorRef> tree_n6 = tree_n2.addChild(new Tree<>(node6));
         Tree<ActorRef> tree_n7 = tree_n3.addChild(new Tree<>(node7));
+        Tree<ActorRef> tree_n8 = tree_n3.addChild(new Tree<>(node8));
+        Tree<ActorRef> tree_n9 = tree_n4.addChild(new Tree<>(node9));
+        Tree<ActorRef> tree_n10 = tree_n4.addChild(new Tree<>(node10));
 
-        SendJoinMessage(tree_root);  // send local information about the tree to everyon
+        SendJoinMessage(tree_root);  // send local information about the tree to everyone (starting from the root)
 
-        node2.tell(new StartInitializationMsg(), null);     // set a node as the initial privileged one
+        node6.tell(new StartInitializationMsg(), null);     // set a node as the initial privileged one
 
         try {
-            System.out.println(">>> Press ENTER to exit <<<");
+            System.out.println(">>> Press ENTER to start the simulation <<<");
             System.in.read();
 
-            node2.tell(new StartRequestMsg(), null);
-            node5.tell(new StartRequestMsg(), null);
-            node4.tell(new StartRequestMsg(), null);
+            // A meaningful example
+            node10.tell(new StartRequestMsg(), null);
+            node7.tell(new StartRequestMsg(), null);
+            node8.tell(new StartRequestMsg(), null);
+            try {
+                Thread.sleep(2000); }
+            catch (InterruptedException e) {
+                System.out.printf("Interr exc"); }
+            node1.tell(new StartRequestMsg(), null);
 
             System.in.read();
+
         } catch (IOException ioe) {
+            System.out.printf("IO exc");
         }
 
         system.terminate();
