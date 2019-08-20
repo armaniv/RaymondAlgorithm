@@ -1,0 +1,3 @@
+# Don't track ontent of these folders
+.gradle
+build/
