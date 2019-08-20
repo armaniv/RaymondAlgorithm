@@ -9,13 +9,13 @@ import java.util.*;
 
 
 public class Node extends AbstractActor {
-    final static int CSDURATION = 2000;     // the duration (in milliseconds) of the critical session
-    private final int id;     // node id (not really necessary)
-    private ActorRef holder;     // relative position of the privileged node
-    private Boolean using;  // if this node is currently executing the critical session
-    private LinkedList<ActorRef> request_q;    // queue of the requests
-    private Boolean asked;  // true if a node has sent a request message to the current holder
-    private Tree<ActorRef> tree_node;   // local information about the tree
+    final static int CSDURATION = 2000;         // the duration (in milliseconds) of the critical session
+    private final int id;                       // node id (not really necessary)
+    private ActorRef holder;                    // relative position of the privileged node
+    private Boolean using;                      // if this node is currently executing the critical session
+    private LinkedList<ActorRef> request_q;     // queue of the requests
+    private Boolean asked;                      // true if a node has sent a request message to the current holder
+    private Tree<ActorRef> tree_node;           // local information about the tree
 
 
     /* ------------------------ Message types ------------------------ */
@@ -144,6 +144,8 @@ public class Node extends AbstractActor {
     }
 
     private void assignPrivilege() {
+        // maybe we should add in the condition also:
+        //      head(REQUEST_Q) != self
         if (this.holder == getSelf() && this.using == Boolean.FALSE && this.request_q.size() != 0) {
             this.holder = this.request_q.removeFirst();
             this.asked = Boolean.FALSE;
