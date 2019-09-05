@@ -39,21 +39,31 @@ public class RaymondAlg {
 
         SendJoinMessage(tree_root);  // send local information about the tree to everyone (starting from the root)
 
-        node6.tell(new StartInitializationMsg(), null);     // set a node as the initial privileged one
+        node6.tell(new StartInitialization(), null);     // set a node as the initial privileged one
 
         try {
             System.out.println(">>> Press ENTER to start the simulation <<<");
             System.in.read();
 
-            // A meaningful example
-            node10.tell(new StartRequestMsg(), null);
-            node7.tell(new StartRequestMsg(), null);
-            node8.tell(new StartRequestMsg(), null);
+            node10.tell(new StartRequest(), null);
+
+            node4.tell(new Fail(), null);
+            node4.tell(new Recovery(), null);
+
+            
+            node7.tell(new Fail(), null);
+            node7.tell(new Recovery(), null);
+            node7.tell(new StartRequest(), null);
+
+            node8.tell(new StartRequest(), null);
+
             try {
-                Thread.sleep(2000); }
-            catch (InterruptedException e) {
-                System.out.printf("Interr exc"); }
-            node1.tell(new StartRequestMsg(), null);
+                Thread.sleep(2000); 
+            }catch (InterruptedException e) {
+                System.out.printf("Interr exc"); 
+            }
+
+            node1.tell(new StartRequest(), null);
 
             System.in.read();
 
@@ -66,7 +76,7 @@ public class RaymondAlg {
 
     // Send local information about the tree, traversing it
     private static void SendJoinMessage(Tree<ActorRef> node) {
-        JoinTreeMsg join = new JoinTreeMsg(node);
+        JoinTree join = new JoinTree(node);
         node.getData().tell(join, null);
         node.getChildren().forEach(each -> SendJoinMessage(each));
     }

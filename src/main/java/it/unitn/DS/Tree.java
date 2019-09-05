@@ -37,4 +37,13 @@ public class Tree<T> {
     public Tree<T> getParent() {
         return parent;
     }
+
+    public List<T> getNeighbors(){
+        List<T> neighbours = new ArrayList<T>();
+        this.children.forEach(c -> {
+            neighbours.add(c.data);
+        });
+        neighbours.add(this.parent.data);
+        return neighbours;
+    }
 }
