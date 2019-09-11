@@ -1,7 +1,9 @@
-package it.unitn.DS;
+package it.unitn.ds;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 
 public class Tree<T> {
@@ -43,7 +45,12 @@ public class Tree<T> {
         this.children.forEach(c -> {
             neighbours.add(c.data);
         });
-        neighbours.add(this.parent.data);
+
+        // if root, node doesn't have a parent
+        if (this.parent != null){
+            neighbours.add(this.parent.data);
+        }
+
         return neighbours;
     }
 }

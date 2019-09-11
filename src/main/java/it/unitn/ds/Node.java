@@ -1,4 +1,4 @@
-package it.unitn.DS;
+package it.unitn.ds;
 
 import akka.actor.ActorRef;
 import akka.actor.AbstractActor;
@@ -18,8 +18,8 @@ public class Node extends AbstractActor {
     private Tree<ActorRef> tree_node;           // local information about the tree
     private Boolean want_to_access_CS;
 
-    private Boolean recovering;  
-    private Hashtable<ActorRef, Tuple<Boolean, Advise>> contacted_neighbours;
+    private Boolean recovering;                 // signals to itself if a recovering phase is on going
+    private Hashtable<ActorRef, Tuple<Boolean, Advise>> contacted_neighbours; // used only if recovering==TRUE
 
 
     /* ------------------------ Message types ------------------------ */
@@ -52,13 +52,10 @@ public class Node extends AbstractActor {
     // Message used by Sys to simulate failing 
     public static class Fail implements Serializable {}
 
-    // Message used by Sys to launch the Recovery phase 
-    public static class Recovery implements Serializable {}
-
     // Message used by a node to inform neighbours about Restart after failure 
     public static class Restart implements Serializable {}
 
-    // Message used to send local knowledge a restarting node 
+    // Message used to send local knowledge to a restarting node 
     public static class Advise implements Serializable {
         private final ActorRef holder;
         private final LinkedList<ActorRef> request_q;
@@ -88,6 +85,8 @@ public class Node extends AbstractActor {
 
     private void onJoinTree(JoinTree msg) {
         this.tree_node = msg.tree_node;
+        // System.out.printf("### Node %02d with ID %02d ### ###### FAILED ######, \n\t Starting Recovery...\n", this.id, this.tree_node.data.getId());
+
     }
 
     private void onStartInitialization(StartInitialization m) {
@@ -105,7 +104,6 @@ public class Node extends AbstractActor {
     }
 
     private void onStartRequest(StartRequest m) {
-        this.want_to_access_CS = Boolean.TRUE;
         this.request_q.add(getSelf());  // add self to the queue
         assignPrivilege();
         makeRequest();
@@ -125,6 +123,7 @@ public class Node extends AbstractActor {
 
     // simulates the failure of the node and prepares a
     // clean/new local environment for the Recovery phase
+    // launches also the recovery phase
     private void onFailMsg(Fail m){
         // delay for 2 seconds to ensure node 
         // doesn't receive messages during failure
@@ -143,20 +142,15 @@ public class Node extends AbstractActor {
         this.using = Boolean.FALSE;
         this.asked = Boolean.FALSE;
         this.holder = null;
-        System.out.printf("Node %02d FAILED, starting Recovery...\n", this.id);
-    }
+        System.out.printf("### Node %02d ### ###### FAILED ######, \n\t Starting Recovery...\n", this.id);
 
-    // starts the recovery phase this methods allows to simulate 
-    // reception of messages during the recovery phase
-    private void onRecoveryMsg(Recovery m){
-        // delay for a period to ensure that messages of 
-        // this node have been received
-        try{ 
-            int ms = 2000;
-            Thread.sleep(ms); 
-        } 
-        catch (InterruptedException e){
-            e.printStackTrace();
+        // wait instead of sleep because we want to be able to receive messages
+        // we wait for a reasonable long time to allow all messages to be sent and received
+        int duration = 2000;
+        long startTime = System.currentTimeMillis();
+        long elapsedTime = 0L;
+        while (elapsedTime < duration) {
+            elapsedTime = (new Date()).getTime() - startTime;
         }
         // inform neighbours about Restart a hashtable to 
         // memorize contacted neighbors and their status
@@ -229,10 +223,11 @@ public class Node extends AbstractActor {
                 this.asked = Boolean.FALSE;
                 if (this.holder == getSelf()) {
                     this.using = Boolean.TRUE;
-                    if (this.want_to_access_CS){
-                        criticalSection();
-                        this.want_to_access_CS = Boolean.FALSE;
-                    }
+                    // if (this.want_to_access_CS){
+                    //     criticalSection();
+                    //     this.want_to_access_CS = Boolean.FALSE;
+                    // }
+                    criticalSection();
                 } else {
                     System.out.printf("Node %02d send privilege\n", this.id);
                     Privilege m = new Privilege();
@@ -257,7 +252,7 @@ public class Node extends AbstractActor {
     }
 
     private void criticalSection() {
-        System.out.printf("Node %02d enter the critical session\n", this.id);
+        System.out.printf("### Node %02d ### enter the ##### Critical Section #####\n", this.id);
 
         // simulate the critical session
         long startTime = System.currentTimeMillis();
@@ -266,7 +261,7 @@ public class Node extends AbstractActor {
             elapsedTime = (new Date()).getTime() - startTime;
         }
 
-        System.out.printf("Node %02d exit the critical session\n", this.id);
+        System.out.printf("Node %02d exit the Section Section\n", this.id);
 
         this.using = Boolean.FALSE;
         assignPrivilege();
@@ -283,17 +278,13 @@ public class Node extends AbstractActor {
     }
 
     private void inferStatus(){
-        for (ActorRef key : contacted_neighbours.keySet()){
-            Tuple<Boolean, Advise> t = contacted_neighbours.get(key);
-        }
-
         Boolean holder_for_all = Boolean.TRUE;
 
         for (ActorRef neighbor : contacted_neighbours.keySet()){
             Tuple<Boolean, Advise> data = contacted_neighbours.get(neighbor);
             Advise advise = data.y;
            
-            if (advise.holder != getSelf()){ 
+            if (advise.holder != getSelf() && this.holder == null){ 
                 // This node is my holder
                 this.holder = neighbor;
                 holder_for_all = Boolean.FALSE;
@@ -322,10 +313,9 @@ public class Node extends AbstractActor {
         assignPrivilege();
         makeRequest();
 
-        System.out.printf("Node %02d has infered:\n", this.id);
-        System.out.printf("holder:%02d\n", this.contacted_neighbours.get(holder).y.id);
-        System.out.printf("asked: %b\n", this.asked);
-        System.out.printf("size of req_q: %02d\n\n", this.request_q.size());
+        System.out.printf("### Node %02d ### has infered:\n\t holder:%02d\n\t asked: %b\n\t size of req_q: %02d\n", 
+            this.id, this.contacted_neighbours.get(holder).y.id, this.asked, this.request_q.size());
+
     }
 
     // Mapping between the received message type and actor methods
@@ -339,7 +329,6 @@ public class Node extends AbstractActor {
                 .match(Request.class, this::onRequestMsg)
                 .match(Privilege.class, this::onPrivilegeMsg)
                 .match(Fail.class, this::onFailMsg)
-                .match(Recovery.class, this::onRecoveryMsg)
                 .match(Restart.class, this::onRestart)
                 .match(Advise.class, this::onAdvise)
                 .build();
@@ -352,6 +341,8 @@ public class Node extends AbstractActor {
           this.x = x; 
           this.y = y; 
         } 
-      } 
+    }
+
+
 }
 

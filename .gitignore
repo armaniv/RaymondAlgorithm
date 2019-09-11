@@ -1,6 +1,4 @@
-# Don't track ontent of these folders
 .gradle
 build/
 .project
 bin/
-src/main/java/it/unitn/DS/.idea/

@@ -1,11 +1,11 @@
-package it.unitn.DS;
+package it.unitn.ds;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 
 import java.io.IOException;
 
-import it.unitn.DS.Node.*;
+import it.unitn.ds.Node.*;
 
 public class RaymondAlg {
 
@@ -46,24 +46,41 @@ public class RaymondAlg {
             System.in.read();
 
             node10.tell(new StartRequest(), null);
-
-            node4.tell(new Fail(), null);
-            node4.tell(new Recovery(), null);
-
-            
-            node7.tell(new Fail(), null);
-            node7.tell(new Recovery(), null);
             node7.tell(new StartRequest(), null);
-
-            node8.tell(new StartRequest(), null);
-
+            node4.tell(new Fail(), null);
             try {
-                Thread.sleep(2000); 
+                Thread.sleep(5000);
             }catch (InterruptedException e) {
                 System.out.printf("Interr exc"); 
             }
-
+            node5.tell(new StartRequest(), null);
             node1.tell(new StartRequest(), null);
+            node9.tell(new StartRequest(), null);
+            node9.tell(new Fail(), null);
+            try {
+                Thread.sleep(5000);
+            }catch (InterruptedException e) {
+                System.out.printf("Interr exc"); 
+            }
+            
+            node3.tell(new StartRequest(), null);
+            node1.tell(new StartRequest(), null);
+            node6.tell(new Fail(), null);
+            try {
+                Thread.sleep(5000);
+            }catch (InterruptedException e) {
+                System.out.printf("Interr exc"); 
+            }
+            node6.tell(new StartRequest(), null);
+            node2.tell(new StartRequest(), null);
+            node1.tell(new Fail(), null);
+              try {
+                Thread.sleep(5000);
+            }catch (InterruptedException e) {
+                System.out.printf("Interr exc"); 
+            }
+            node8.tell(new StartRequest(), null);
+            
 
             System.in.read();
 
