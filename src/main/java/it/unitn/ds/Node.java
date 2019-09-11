@@ -6,17 +6,20 @@ import akka.actor.Props;
 
 import java.io.Serializable;
 import java.util.*;
+import java.time.Duration;
 
 
 public class Node extends AbstractActor {
     final static int CSDURATION = 2000;         // the duration (in milliseconds) of the critical session
+    final static int FDURATION = 2000;          // the duration (in milliseconds) of the FAILURE
     private final int id;                       // node id (not really necessary)
     private ActorRef holder;                    // relative position of the privileged node
     private Boolean using;                      // if this node is currently executing the critical session
     private LinkedList<ActorRef> request_q;     // queue of the requests
     private Boolean asked;                      // true if a node has sent a request message to the current holder
     private Boolean recovering;                 // signals to itself if a recovering phase is on going
-    private Boolean failed;                     // used to signal to itself that the node is simulating a failure
+    private Boolean failed;                     // used to signal to itself that the node is simulating a failure, 
+                                                // allows to ignore messages reception during failure
     private Hashtable<ActorRef, Tuple<Boolean, Advise>> contacted_neighbors; // used only if recovering==TRUE to collect data usefull for recover from failure
     private ArrayList<ActorRef> neighbors;      // local info about the tree structure, only neigbor nodes
 
@@ -151,28 +154,32 @@ public class Node extends AbstractActor {
     // clean/new local environment for the Recovery phase
     // launches also the recovery phase
     private void onFailMsg(Fail m){
-        // delay for 2 seconds to ensure node 
-        // doesn't receive messages during failure
-        try{ 
-            int ms = 2000;
-            Thread.sleep(ms); 
-        } 
-        catch (InterruptedException e){
-            e.printStackTrace();
-        }
-        // inform other methods that we are restarting
-        // if some messages are received during this phase 
-        this.recovering = Boolean.TRUE;
+        // inform itself about failure
+        this.failed = Boolean.TRUE;
+
         // delete any previous knowledge about the algorithm status 
         this.request_q = new LinkedList<>();
         this.using = Boolean.FALSE;
         this.asked = Boolean.FALSE;
         this.holder = null;
-        System.out.printf("### Node %02d ### ###### FAILED ######, \n\t Starting Recovery...\n", this.id);
+        System.out.printf("### Node %02d ### ###### FAILED ######, \n\t Waiting for Recovery...\n", this.id);
 
-        // wait instead of sleep because we want to be able to receive messages
-        // we wait for a reasonable long time to allow all messages to be sent and received
-        int duration = 2000;
+        // schedule a future message to be sent to itself in order to exit from Failure after FDURATION milliseconds
+        // and start Recover phase
+        context().system().scheduler().scheduleOnce(Duration.ofMillis(this.FDURATION), getSelf(), new Recover(), context().system().dispatcher(), null);
+    }
+
+    private void onRecover(Recover m){
+        // inform other methods that we are restarting
+        // if some messages are received during this phase 
+        this.recovering = Boolean.TRUE;
+        
+        // exit from failure mode
+        this.failed = Boolean.FALSE;
+
+        // we wait for a reasonable long time to allow all messages 
+        // to be sent and received between the other nodes
+        int duration = 5000;
         long startTime = System.currentTimeMillis();
         long elapsedTime = 0L;
         while (elapsedTime < duration) {
@@ -186,10 +193,6 @@ public class Node extends AbstractActor {
             this.contacted_neighbors
                 .put(neighbor, new Tuple<Boolean, Advise>(Boolean.FALSE, null));
         });
-    }
-
-    private void onRecover(Recover m){
-        
     }
 
     private void onRestart(Restart m){

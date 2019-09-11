@@ -47,38 +47,21 @@ public class RaymondAlg {
 
             node10.tell(new StartRequest(), null);
             node7.tell(new StartRequest(), null);
-            node4.tell(new Fail(), null);
-            try {
-                Thread.sleep(5000);
-            }catch (InterruptedException e) {
-                System.out.printf("Interr exc"); 
-            }
             node5.tell(new StartRequest(), null);
             node1.tell(new StartRequest(), null);
+
+            node1.tell(new Fail(), null);
+            try {
+                Thread.sleep(5000);
+            }catch (InterruptedException e) {
+                System.out.printf("Interr exc"); 
+            }
+
             node9.tell(new StartRequest(), null);
-            node9.tell(new Fail(), null);
-            try {
-                Thread.sleep(5000);
-            }catch (InterruptedException e) {
-                System.out.printf("Interr exc"); 
-            }
-            
             node3.tell(new StartRequest(), null);
-            node1.tell(new StartRequest(), null);
-            node6.tell(new Fail(), null);
-            try {
-                Thread.sleep(5000);
-            }catch (InterruptedException e) {
-                System.out.printf("Interr exc"); 
-            }
+            node4.tell(new StartRequest(), null);
             node6.tell(new StartRequest(), null);
             node2.tell(new StartRequest(), null);
-            node1.tell(new Fail(), null);
-              try {
-                Thread.sleep(5000);
-            }catch (InterruptedException e) {
-                System.out.printf("Interr exc"); 
-            }
             node8.tell(new StartRequest(), null);
             
 
