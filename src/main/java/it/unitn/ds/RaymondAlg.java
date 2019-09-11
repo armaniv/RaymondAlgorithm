@@ -7,6 +7,8 @@ import java.io.IOException;
 
 import it.unitn.ds.Node.*;
 
+import java.util.*;
+
 public class RaymondAlg {
 
     public static void main(String[] args) {
@@ -25,21 +27,19 @@ public class RaymondAlg {
         final ActorRef node9 = system.actorOf(Node.props(9));
         final ActorRef node10 = system.actorOf(Node.props(10));
 
-        // Create a tree (like the one in Fig 7 pag 71)
-        Tree<ActorRef> tree_root = new Tree<>(node1);
-        Tree<ActorRef> tree_n2 = tree_root.addChild(new Tree<>(node2));
-        Tree<ActorRef> tree_n3 = tree_root.addChild(new Tree<>(node3));
-        Tree<ActorRef> tree_n4 = tree_root.addChild(new Tree<>(node4));
-        Tree<ActorRef> tree_n5 = tree_n2.addChild(new Tree<>(node5));
-        Tree<ActorRef> tree_n6 = tree_n2.addChild(new Tree<>(node6));
-        Tree<ActorRef> tree_n7 = tree_n3.addChild(new Tree<>(node7));
-        Tree<ActorRef> tree_n8 = tree_n3.addChild(new Tree<>(node8));
-        Tree<ActorRef> tree_n9 = tree_n4.addChild(new Tree<>(node9));
-        Tree<ActorRef> tree_n10 = tree_n4.addChild(new Tree<>(node10));
+        // create the tree as in page 71 from original paper
+        node1.tell(new InitNode(new ArrayList<ActorRef>(List.of(node2, node3, node4))), null);
+        node2.tell(new InitNode(new ArrayList<ActorRef>(List.of(node1, node5, node6))), null);
+        node3.tell(new InitNode(new ArrayList<ActorRef>(List.of(node1, node7, node8))), null);
+        node4.tell(new InitNode(new ArrayList<ActorRef>(List.of(node1, node10, node9))), null);
+        node5.tell(new InitNode(new ArrayList<ActorRef>(List.of(node2))), null);
+        node6.tell(new InitNode(new ArrayList<ActorRef>(List.of(node2))), null);
+        node7.tell(new InitNode(new ArrayList<ActorRef>(List.of(node3))), null);
+        node8.tell(new InitNode(new ArrayList<ActorRef>(List.of(node3))), null);
+        node9.tell(new InitNode(new ArrayList<ActorRef>(List.of(node4))), null);
+        node10.tell(new InitNode(new ArrayList<ActorRef>(List.of(node4))), null);
 
-        SendJoinMessage(tree_root);  // send local information about the tree to everyone (starting from the root)
-
-        node6.tell(new StartInitialization(), null);     // set a node as the initial privileged one
+        node6.tell(new HolderInfo(-1), null);
 
         try {
             System.out.println(">>> Press ENTER to start the simulation <<<");
@@ -89,12 +89,5 @@ public class RaymondAlg {
         }
 
         system.terminate();
-    }
-
-    // Send local information about the tree, traversing it
-    private static void SendJoinMessage(Tree<ActorRef> node) {
-        JoinTree join = new JoinTree(node);
-        node.getData().tell(join, null);
-        node.getChildren().forEach(each -> SendJoinMessage(each));
     }
 }

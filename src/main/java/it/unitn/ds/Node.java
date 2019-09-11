@@ -15,30 +15,31 @@ public class Node extends AbstractActor {
     private Boolean using;                      // if this node is currently executing the critical session
     private LinkedList<ActorRef> request_q;     // queue of the requests
     private Boolean asked;                      // true if a node has sent a request message to the current holder
-    private Tree<ActorRef> tree_node;           // local information about the tree
-    private Boolean want_to_access_CS;
-
     private Boolean recovering;                 // signals to itself if a recovering phase is on going
-    private Hashtable<ActorRef, Tuple<Boolean, Advise>> contacted_neighbours; // used only if recovering==TRUE
+    private Boolean failed;                     // used to signal to itself that the node is simulating a failure
+    private Hashtable<ActorRef, Tuple<Boolean, Advise>> contacted_neighbors; // used only if recovering==TRUE to collect data usefull for recover from failure
+    private ArrayList<ActorRef> neighbors;      // local info about the tree structure, only neigbor nodes
 
 
     /* ------------------------ Message types ------------------------ */
 
-    // Start message that gives at every participant the local information about the tree
-    public static class JoinTree implements Serializable {
-        private final Tree<ActorRef> tree_node; // node of the tree
+    // message used to initialize the node with neighbors
+    public static class InitNode implements Serializable {
+        private final ArrayList<ActorRef> neighbors;
 
-        public JoinTree(Tree<ActorRef> tree_node) {
-            this.tree_node = tree_node;
+        public InitNode(ArrayList<ActorRef> neighbors) {
+            this.neighbors = neighbors;
         }
     }
 
+    // message used to spread the initial information about the token holder
+    public static class HolderInfo implements Serializable {
+        private final int id;
 
-    // A message requesting a node to start the initialization
-    public static class StartInitialization implements Serializable {}
-
-    // A Initialization message
-    public static class Initialization implements Serializable {}
+        public HolderInfo(int id){
+            this.id = id;
+        }
+    }
 
     // A message requesting a node to ask for entering the critical session
     public static class StartRequest implements Serializable {}
@@ -51,6 +52,9 @@ public class Node extends AbstractActor {
 
     // Message used by Sys to simulate failing 
     public static class Fail implements Serializable {}
+
+    // Message used to exit from Failure and start recovering phase
+    public static class Recover implements Serializable {}
 
     // Message used by a node to inform neighbours about Restart after failure 
     public static class Restart implements Serializable {}
@@ -74,7 +78,6 @@ public class Node extends AbstractActor {
     public Node(int id) {
         this.id = id;
         this.recovering = Boolean.FALSE;
-        this.want_to_access_CS = Boolean.FALSE;
     }
 
     static public Props props(int id) {
@@ -83,42 +86,65 @@ public class Node extends AbstractActor {
 
     /* ------------------------ Actor behaviour ------------------------ */
 
-    private void onJoinTree(JoinTree msg) {
-        this.tree_node = msg.tree_node;
-        // System.out.printf("### Node %02d with ID %02d ### ###### FAILED ######, \n\t Starting Recovery...\n", this.id, this.tree_node.data.getId());
-
-    }
-
-    private void onStartInitialization(StartInitialization m) {
-        sendInitilization();
-    }
-
-    private void onInitialization(Initialization m) {
-        // initialize the node
-        this.holder = getSender();
+    // initializes the node with neighbors
+    private void onInitNode(InitNode m){
         this.request_q = new LinkedList<>();
         this.using = Boolean.FALSE;
         this.asked = Boolean.FALSE;
         this.recovering = Boolean.FALSE;
-        FloodTree(m, getSender());   // propagate the message
+        this.neighbors = m.neighbors;
+        this.failed = Boolean.FALSE;
+        System.out.printf("*** Node %02d INITIALIZED with %02d neighbours ***, \n", this.id, this.neighbors.size());
+    }
+
+    // spreads initial information about the token holder
+    private void onHolderInfo(HolderInfo m){
+        if (m.id == -1){
+            // if I am the initial holder
+            this.holder = getSelf();
+            System.out.printf("*** Node %02d set holder to SELF ***, \n", this.id);
+        }else{
+            // otherwise it is the sender
+            this.holder = getSender();
+            System.out.printf("*** Node %02d set holder to %02d ***, \n", this.id, m.id);
+        }
+        // spread the info to neigbors
+        this.neighbors.forEach(neighbor -> {
+            if (neighbor != getSender()){
+                neighbor.tell(new HolderInfo(this.id), getSelf());
+            }
+        });
+        System.out.printf("*** Node %02d is READY  ***, \n", this.id);
     }
 
     private void onStartRequest(StartRequest m) {
-        this.request_q.add(getSelf());  // add self to the queue
-        assignPrivilege();
-        makeRequest();
+        if (!this.failed){
+            this.request_q.add(getSelf());  // add self to the queue
+            assignPrivilege();
+            makeRequest();
+        }else{
+            System.out.printf("Node %02d ignores StartRequest message because is failed \n", this.id);
+        }
     }
 
     private void onRequestMsg(Request m) {
-        this.request_q.add(getSender());    // add sender to the queue
-        assignPrivilege();
-        makeRequest();
+        if (!this.failed){
+            this.request_q.add(getSender());    // add sender to the queue
+            assignPrivilege();
+            makeRequest();
+        }else{
+            System.out.printf("Node %02d ignores Request message because is failed \n", this.id);
+        }
     }
 
     private void onPrivilegeMsg(Privilege m) {
-        this.holder = getSelf();     // set holder to self
-        assignPrivilege();
-        makeRequest();
+        if (!this.failed){
+            this.holder = getSelf();     // set holder to self
+            assignPrivilege();
+            makeRequest();
+        }else{
+            System.out.printf("Node %02d ignores Priviledge message because is failed \n", this.id);
+        }      
     }
 
     // simulates the failure of the node and prepares a
@@ -154,66 +180,49 @@ public class Node extends AbstractActor {
         }
         // inform neighbours about Restart a hashtable to 
         // memorize contacted neighbors and their status
-        this.contacted_neighbours = new Hashtable<>();
-        this.tree_node.getNeighbors().forEach(neighbor -> {
+        this.contacted_neighbors = new Hashtable<>();
+        this.neighbors.forEach(neighbor -> {
             neighbor.tell(new Restart(), getSelf());
-            this.contacted_neighbours
+            this.contacted_neighbors
                 .put(neighbor, new Tuple<Boolean, Advise>(Boolean.FALSE, null));
         });
     }
 
+    private void onRecover(Recover m){
+        
+    }
+
     private void onRestart(Restart m){
-        System.out.printf("Node %02d receives Restart\n", this.id);
-        Advise advise = new Advise(this.holder, this.request_q, this.asked, this.id);
-        getSender().tell(advise, getSelf());
+        if (!this.failed){
+            System.out.printf("Node %02d receives Restart\n", this.id);
+            getSender().tell(new Advise(this.holder, this.request_q, this.asked, this.id), getSelf());
+        }else{
+            System.out.printf("Node %02d ignores Restart message because is failed \n", this.id);
+        }
     }
 
     private void onAdvise(Advise m){
-        System.out.printf("Node %02d receives Advise\n", this.id);
-        // never execute this method body if the node is not recovering
-        if (this.recovering){
-            if (this.contacted_neighbours.get(getSender()).x == Boolean.FALSE){
-                // set neighbor as visited and save its data
-                this.contacted_neighbours.get(getSender()).x = Boolean.TRUE;
-                this.contacted_neighbours.get(getSender()).y = m;
+        if (!this.failed){
+            System.out.printf("Node %02d receives Advise\n", this.id);
+            // never execute this actions if the node is not recovering
+            if (this.recovering){
+                if (this.contacted_neighbors.get(getSender()).x == Boolean.FALSE){
+                    // set neighbor as visited and save its data
+                    this.contacted_neighbors.get(getSender()).x = Boolean.TRUE;
+                    this.contacted_neighbors.get(getSender()).y = m;
+                }
+                if (collectedAllAdvises()){
+                    inferStatus();
+                }
             }
-            if (collectedAllAdvises()){
-                inferStatus();
-            }
+        }else{
+            System.out.printf("Node %02d ignores Advise message because is failed \n", this.id);
         }
-    }
-
-    private void sendInitilization() {
-        // initialize the node
-        this.holder = getSelf();
-        this.request_q = new LinkedList<>();
-        this.using = Boolean.FALSE;
-        this.asked = Boolean.FALSE;
-        // send initialization message
-        Initialization m = new Initialization();
-        FloodTree(m, null);
-    }
-
-    // Send message within the tree. If 'exclusion' is set, a message is not sent to it
-    private void FloodTree(Serializable m, ActorRef exclusion) {
-        List<ActorRef> receiver = new ArrayList<>();    //list of who will receive the message
-
-        // check parent and child/ren of a node and, if they are present, add they to 'receiver'
-        if (this.tree_node.getParent() != null)
-            receiver.add(this.tree_node.getParent().getData());
-        if (this.tree_node.getChildren() != null)
-            this.tree_node.getChildren().forEach(each -> receiver.add(each.getData()));
-
-        for (ActorRef p : receiver) {
-            if (!p.equals(exclusion)) {
-                // System.out.printf("Node %02d send init to %s\n", this.id, p);
-                p.tell(m, getSelf());
-            }
-        }
+        
     }
 
     private void assignPrivilege() {
-        // ensure that those methods are never 
+        // ensure that this method is never 
         // called during the recovery phase
         if (!this.recovering) {
             // maybe we should add in the condition also:
@@ -223,10 +232,6 @@ public class Node extends AbstractActor {
                 this.asked = Boolean.FALSE;
                 if (this.holder == getSelf()) {
                     this.using = Boolean.TRUE;
-                    // if (this.want_to_access_CS){
-                    //     criticalSection();
-                    //     this.want_to_access_CS = Boolean.FALSE;
-                    // }
                     criticalSection();
                 } else {
                     System.out.printf("Node %02d send privilege\n", this.id);
@@ -269,8 +274,8 @@ public class Node extends AbstractActor {
     }
 
     private Boolean collectedAllAdvises(){
-        for (ActorRef key : contacted_neighbours.keySet()){
-            if (contacted_neighbours.get(key).x == Boolean.FALSE){
+        for (ActorRef key : contacted_neighbors.keySet()){
+            if (contacted_neighbors.get(key).x == Boolean.FALSE){
                 return Boolean.FALSE;
             }
         }
@@ -280,8 +285,8 @@ public class Node extends AbstractActor {
     private void inferStatus(){
         Boolean holder_for_all = Boolean.TRUE;
 
-        for (ActorRef neighbor : contacted_neighbours.keySet()){
-            Tuple<Boolean, Advise> data = contacted_neighbours.get(neighbor);
+        for (ActorRef neighbor : contacted_neighbors.keySet()){
+            Tuple<Boolean, Advise> data = contacted_neighbors.get(neighbor);
             Advise advise = data.y;
            
             if (advise.holder != getSelf() && this.holder == null){ 
@@ -303,7 +308,7 @@ public class Node extends AbstractActor {
         if (holder_for_all){
             this.holder = getSelf();
             this.asked = Boolean.FALSE;
-        } else if (this.contacted_neighbours.get(this.holder).y.request_q.contains(getSelf())){
+        } else if (this.contacted_neighbors.get(this.holder).y.request_q.contains(getSelf())){
             this.asked = Boolean.TRUE;
         }
 
@@ -314,7 +319,7 @@ public class Node extends AbstractActor {
         makeRequest();
 
         System.out.printf("### Node %02d ### has infered:\n\t holder:%02d\n\t asked: %b\n\t size of req_q: %02d\n", 
-            this.id, this.contacted_neighbours.get(holder).y.id, this.asked, this.request_q.size());
+            this.id, this.contacted_neighbors.get(holder).y.id, this.asked, this.request_q.size());
 
     }
 
@@ -322,15 +327,15 @@ public class Node extends AbstractActor {
     @Override
     public Receive createReceive() {
         return receiveBuilder()
-                .match(JoinTree.class, this::onJoinTree)
-                .match(StartInitialization.class, this::onStartInitialization)
-                .match(Initialization.class, this::onInitialization)
                 .match(StartRequest.class, this::onStartRequest)
                 .match(Request.class, this::onRequestMsg)
                 .match(Privilege.class, this::onPrivilegeMsg)
                 .match(Fail.class, this::onFailMsg)
                 .match(Restart.class, this::onRestart)
                 .match(Advise.class, this::onAdvise)
+                .match(InitNode.class, this::onInitNode)
+                .match(HolderInfo.class, this::onHolderInfo)
+                .match(Recover.class, this::onRecover)
                 .build();
     }
 
