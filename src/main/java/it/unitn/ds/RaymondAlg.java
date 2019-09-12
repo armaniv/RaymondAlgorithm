@@ -49,10 +49,9 @@ public class RaymondAlg {
             node7.tell(new StartRequest(), null);
             node5.tell(new StartRequest(), null);
             node1.tell(new StartRequest(), null);
-
             node1.tell(new Fail(), null);
             try {
-                Thread.sleep(5000);
+                Thread.sleep(2000);
             }catch (InterruptedException e) {
                 System.out.printf("Interr exc"); 
             }

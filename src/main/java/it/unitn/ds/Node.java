@@ -20,7 +20,7 @@ public class Node extends AbstractActor {
     private Boolean recovering;                 // signals to itself if a recovering phase is on going
     private Boolean failed;                     // used to signal to itself that the node is simulating a failure, 
                                                 // allows to ignore messages reception during failure
-    private Hashtable<ActorRef, Tuple<Boolean, Advise>> contacted_neighbors; // used only if recovering==TRUE to collect data usefull for recover from failure
+    private HashMap<ActorRef, Advise> contacted_neighbors; // used only if recovering==TRUE to collect data usefull for recover from failure
     private ArrayList<ActorRef> neighbors;      // local info about the tree structure, only neigbor nodes
 
 
@@ -187,11 +187,10 @@ public class Node extends AbstractActor {
         }
         // inform neighbours about Restart a hashtable to 
         // memorize contacted neighbors and their status
-        this.contacted_neighbors = new Hashtable<>();
+        this.contacted_neighbors = new HashMap<>();
         this.neighbors.forEach(neighbor -> {
             neighbor.tell(new Restart(), getSelf());
-            this.contacted_neighbors
-                .put(neighbor, new Tuple<Boolean, Advise>(Boolean.FALSE, null));
+            this.contacted_neighbors.put(neighbor, null);
         });
     }
 
@@ -209,10 +208,9 @@ public class Node extends AbstractActor {
             System.out.printf("Node %02d receives Advise\n", this.id);
             // never execute this actions if the node is not recovering
             if (this.recovering){
-                if (this.contacted_neighbors.get(getSender()).x == Boolean.FALSE){
+                if (this.contacted_neighbors.get(getSender()) == null){
                     // set neighbor as visited and save its data
-                    this.contacted_neighbors.get(getSender()).x = Boolean.TRUE;
-                    this.contacted_neighbors.get(getSender()).y = m;
+                    this.contacted_neighbors.put(getSender(), m);
                 }
                 if (collectedAllAdvises()){
                     inferStatus();
@@ -278,7 +276,7 @@ public class Node extends AbstractActor {
 
     private Boolean collectedAllAdvises(){
         for (ActorRef key : contacted_neighbors.keySet()){
-            if (contacted_neighbors.get(key).x == Boolean.FALSE){
+            if (contacted_neighbors.get(key) == null){
                 return Boolean.FALSE;
             }
         }
@@ -289,8 +287,7 @@ public class Node extends AbstractActor {
         Boolean holder_for_all = Boolean.TRUE;
 
         for (ActorRef neighbor : contacted_neighbors.keySet()){
-            Tuple<Boolean, Advise> data = contacted_neighbors.get(neighbor);
-            Advise advise = data.y;
+            Advise advise = contacted_neighbors.get(neighbor);
            
             if (advise.holder != getSelf() && this.holder == null){ 
                 // This node is my holder
@@ -311,7 +308,7 @@ public class Node extends AbstractActor {
         if (holder_for_all){
             this.holder = getSelf();
             this.asked = Boolean.FALSE;
-        } else if (this.contacted_neighbors.get(this.holder).y.request_q.contains(getSelf())){
+        } else if (this.contacted_neighbors.get(this.holder).request_q.contains(getSelf())){
             this.asked = Boolean.TRUE;
         }
 
@@ -322,7 +319,7 @@ public class Node extends AbstractActor {
         makeRequest();
 
         System.out.printf("### Node %02d ### has infered:\n\t holder:%02d\n\t asked: %b\n\t size of req_q: %02d\n", 
-            this.id, this.contacted_neighbors.get(holder).y.id, this.asked, this.request_q.size());
+            this.id, this.contacted_neighbors.get(holder).id, this.asked, this.request_q.size());
 
     }
 
@@ -341,16 +338,6 @@ public class Node extends AbstractActor {
                 .match(Recover.class, this::onRecover)
                 .build();
     }
-
-    private class Tuple<X, Y> { 
-        public X x; 
-        public Y y; 
-        public Tuple(X x, Y y) { 
-          this.x = x; 
-          this.y = y; 
-        } 
-    }
-
 
 }
 
