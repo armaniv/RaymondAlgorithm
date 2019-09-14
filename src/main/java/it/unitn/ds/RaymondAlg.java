@@ -39,7 +39,7 @@ public class RaymondAlg {
         node9.tell(new InitNode(new ArrayList<ActorRef>(List.of(node4))), null);
         node10.tell(new InitNode(new ArrayList<ActorRef>(List.of(node4))), null);
 
-        node6.tell(new HolderInfo(-1), null);
+        node6.tell(new HolderInfo(Boolean.TRUE,6), null);
 
         try {
             System.out.println(">>> Press ENTER to start the simulation <<<");
