@@ -20,6 +20,7 @@ public class Node extends AbstractActor {
     private Boolean recovering;                 // signals to itself if a recovering phase is on going
     private Boolean failed;                     // used to signal to itself that the node is simulating a failure, 
                                                 // allows to ignore messages reception during failure
+    private int selfRequests = 0;                // count how many times a node wants to access the critical session
     private HashMap<ActorRef, Advise> contacted_neighbors; // used only if recovering==TRUE to collect data useful for recover from failure
     private ArrayList<ActorRef> neighbors;      // local info about the tree structure, only neighbor nodes
 
@@ -40,29 +41,35 @@ public class Node extends AbstractActor {
         private final int id;
         private final boolean initializer;
 
-        public HolderInfo(boolean initializer, int id){
+        public HolderInfo(boolean initializer, int id) {
             this.id = id;
             this.initializer = initializer;
         }
     }
 
     // A message requesting a node to ask for entering the critical session
-    public static class StartRequest implements Serializable {}
+    public static class StartRequest implements Serializable {
+    }
 
     // A request message
-    public static class Request implements Serializable {}
+    public static class Request implements Serializable {
+    }
 
     // A privilege message
-    public static class Privilege implements Serializable {}
+    public static class Privilege implements Serializable {
+    }
 
     // Message used by Sys to simulate failing 
-    public static class Fail implements Serializable {}
+    public static class Fail implements Serializable {
+    }
 
     // Message used to exit from Failure and start recovering phase
-    public static class Recover implements Serializable {}
+    public static class Recover implements Serializable {
+    }
 
     // Message used by a node to inform neighbours about Restart after failure 
-    public static class Restart implements Serializable {}
+    public static class Restart implements Serializable {
+    }
 
     // Message used to send local knowledge to a restarting node 
     public static class Advise implements Serializable {
@@ -79,7 +86,9 @@ public class Node extends AbstractActor {
         }
     }
 
+
     /* ------------------------ Actor constructor ------------------------ */
+
     public Node(int id) {
         this.id = id;
         this.recovering = Boolean.FALSE;
@@ -89,10 +98,11 @@ public class Node extends AbstractActor {
         return Props.create(Node.class, () -> new Node(id));
     }
 
+
     /* ------------------------ Actor behaviour ------------------------ */
 
     // initializes the node with neighbors
-    private void onInitNode(InitNode m){
+    private void onInitNode(InitNode m) {
         this.request_q = new LinkedList<>();
         this.using = Boolean.FALSE;
         this.asked = Boolean.FALSE;
@@ -103,56 +113,62 @@ public class Node extends AbstractActor {
     }
 
     // spreads initial information about the token holder
-    private void onHolderInfo(HolderInfo m){
-        if (m.initializer == Boolean.TRUE){
+    private void onHolderInfo(HolderInfo m) {
+        if (m.initializer == Boolean.TRUE) {
             // if I am the initial holder
             this.holder = getSelf();
             System.out.printf("*** Node %02d set holder to SELF ***, \n", this.id);
-        }else{
+        } else {
             // otherwise it is the sender
             this.holder = getSender();
             System.out.printf("*** Node %02d set holder to %02d ***, \n", this.id, m.id);
         }
         // spread the info to neighbors
         this.neighbors.forEach(neighbor -> {
-            if (neighbor != getSender()){
+            if (neighbor != getSender()) {
                 neighbor.tell(new HolderInfo(Boolean.FALSE, this.id), getSelf());
             }
         });
     }
 
     private void onStartRequest(StartRequest m) {
-        if (!this.failed){
-            this.request_q.add(getSelf());  // add self to the queue
+        if (!this.failed) {
+            this.selfRequests++;
+
+            // add self to queue if not already present
+            if (!this.request_q.contains(getSelf())) {
+                this.request_q.add(getSelf());  // add self to the queue
+            }
+
             assignPrivilege();
             makeRequest();
-        }else{
+        } else {
             System.out.printf("#### Node %02d ignores StartRequest message because is failed ####\n", this.id);
         }
     }
 
     private void onRequestMsg(Request m) {
-        if (!this.failed){
+        if (!this.failed) {
             this.request_q.add(getSender());    // add sender to the queue
             assignPrivilege();
             makeRequest();
-        }else{
+        } else {
             System.out.printf("#### Node %02d ignores Request message because is failed ####\n", this.id);
         }
     }
 
     private void onPrivilegeMsg(Privilege m) {
-        if (!this.failed){
+        if (!this.failed) {
             this.holder = getSelf();     // set holder to self
             assignPrivilege();
             makeRequest();
-        }else{
+        } else {
             System.out.printf("#### Node %02d ignores Privilege message because is failed ####\n", this.id);
-        }      
+        }
     }
 
     // simulates the failure of the node (clean local information of the node). Launches also the recovery phase
-    private void onFailMsg(Fail m){
+    private void onFailMsg(Fail m) {
         // inform itself about failure
         this.failed = Boolean.TRUE;
 
@@ -169,11 +185,11 @@ public class Node extends AbstractActor {
                 context().system().dispatcher(), null);
     }
 
-    private void onRecover(Recover m){
+    private void onRecover(Recover m) {
         // inform other methods that we are restarting
         // if some messages are received during this phase 
         this.recovering = Boolean.TRUE;
-        
+
         // exit from failure mode
         this.failed = Boolean.FALSE;
 
@@ -192,33 +208,31 @@ public class Node extends AbstractActor {
         });
     }
 
-    private void onRestart(Restart m){
-        if (!this.failed){
+    private void onRestart(Restart m) {
+        if (!this.failed) {
             System.out.printf("Node %02d receives Restart\n", this.id);
             getSender().tell(new Advise(this.holder, this.request_q, this.asked, this.id), getSelf());
-        }else{
+        } else {
             System.out.printf("#### Node %02d ignores Restart message because is failed ####\n", this.id);
         }
     }
 
-    private void onAdvise(Advise m){
-        if (!this.failed){
+    private void onAdvise(Advise m) {
+        if (!this.failed) {
             System.out.printf("Node %02d receives Advise\n", this.id);
 
             // never execute this actions if the node is not recovering
-            if (this.recovering){
-                if (this.contacted_neighbors.get(getSender()) == null){
-                    // save neighbor data
-                    this.contacted_neighbors.put(getSender(), m);
-                }
-                if (collectedAllAdvises()){
+            if (this.recovering) {
+                // save neighbor data
+                this.contacted_neighbors.putIfAbsent(getSender(), m);
+
+                if (collectedAllAdvises()) {
                     inferStatus();
                 }
             }
-        }else{
+        } else {
             System.out.printf("#### Node %02d ignores Advise message because is failed ####\n", this.id);
         }
-        
     }
 
     private void assignPrivilege() {
@@ -238,7 +252,6 @@ public class Node extends AbstractActor {
                 }
             }
         }
-
     }
 
     private void makeRequest() {
@@ -267,51 +280,60 @@ public class Node extends AbstractActor {
         System.out.printf("#### Node %02d exit the Critical Section ####\n", this.id);
 
         this.using = Boolean.FALSE;
+
+        this.selfRequests--;
+
+        // if self needs more accesses to critical section, enqueue it again in the request queue
+        if (this.selfRequests > 0) {
+            this.request_q.add(getSelf());
+        }
         assignPrivilege();
         makeRequest();
+
+
     }
 
-    private Boolean collectedAllAdvises(){
-        for (ActorRef key : contacted_neighbors.keySet()){
-            if (contacted_neighbors.get(key) == null){
+    private Boolean collectedAllAdvises() {
+        for (ActorRef key : contacted_neighbors.keySet()) {
+            if (contacted_neighbors.get(key) == null) {
                 return Boolean.FALSE;
             }
         }
         return Boolean.TRUE;
     }
 
-    private void inferStatus(){
+    private void inferStatus() {
         Boolean holder_for_all = Boolean.TRUE;
 
-        for (ActorRef neighbor : contacted_neighbors.keySet()){
+        for (ActorRef neighbor : contacted_neighbors.keySet()) {
             Advise advise = contacted_neighbors.get(neighbor);
-           
-            if (advise.holder != getSelf() && this.holder == null){ 
+
+            if (advise.holder != getSelf() && this.holder == null) {
                 // This node is my holder
                 this.holder = neighbor;
                 holder_for_all = Boolean.FALSE;
 
-            }else if (advise.asked == Boolean.TRUE){
+            } else if (advise.asked == Boolean.TRUE) {
                 // if I am the holder and the node has requested the token
                 // it should be add to my request_queue (if not already present)
-                if (!this.request_q.contains((neighbor))){
+                if (!this.request_q.contains((neighbor))) {
                     this.request_q.add(neighbor);
                 }
             }
         }
 
         // I have the token if I am holder for all neighbors
-        if (holder_for_all){
+        if (holder_for_all) {
             this.holder = getSelf();
             this.asked = Boolean.FALSE;
-        } else if (this.contacted_neighbors.get(this.holder).request_q.contains(getSelf())){
+        } else if (this.contacted_neighbors.get(this.holder).request_q.contains(getSelf())) {
             this.asked = Boolean.TRUE;
         }
 
         this.recovering = Boolean.FALSE;
 
-        System.out.printf("#### Node %02d RECOVERY finished: {holder:%02d, asked:%b, req_q size: %02d}\n", this.id,
-          this.holder == getSelf() ? this.id : this.contacted_neighbors.get(holder).id, this.asked,
+        System.out.printf("#### Node %02d RECOVERY finished: {holder:%02d, asked:%b, req_q size: %02d}####\n", this.id,
+                this.holder == getSelf() ? this.id : this.contacted_neighbors.get(holder).id, this.asked,
                 this.request_q.size());
 
         // restart participation to algorithm
@@ -334,6 +356,5 @@ public class Node extends AbstractActor {
                 .match(Recover.class, this::onRecover)
                 .build();
     }
-
 }
 

@@ -28,18 +28,18 @@ public class RaymondAlg {
         final ActorRef node10 = system.actorOf(Node.props(10));
 
         // create the tree as in page 71 from original paper
-        node1.tell(new InitNode(new ArrayList<ActorRef>(List.of(node2, node3, node4))), null);
-        node2.tell(new InitNode(new ArrayList<ActorRef>(List.of(node1, node5, node6))), null);
-        node3.tell(new InitNode(new ArrayList<ActorRef>(List.of(node1, node7, node8))), null);
-        node4.tell(new InitNode(new ArrayList<ActorRef>(List.of(node1, node10, node9))), null);
-        node5.tell(new InitNode(new ArrayList<ActorRef>(List.of(node2))), null);
-        node6.tell(new InitNode(new ArrayList<ActorRef>(List.of(node2))), null);
-        node7.tell(new InitNode(new ArrayList<ActorRef>(List.of(node3))), null);
-        node8.tell(new InitNode(new ArrayList<ActorRef>(List.of(node3))), null);
-        node9.tell(new InitNode(new ArrayList<ActorRef>(List.of(node4))), null);
-        node10.tell(new InitNode(new ArrayList<ActorRef>(List.of(node4))), null);
+        node1.tell(new InitNode(new ArrayList<>(List.of(node2, node3, node4))), null);
+        node2.tell(new InitNode(new ArrayList<>(List.of(node1, node5, node6))), null);
+        node3.tell(new InitNode(new ArrayList<>(List.of(node1, node7, node8))), null);
+        node4.tell(new InitNode(new ArrayList<>(List.of(node1, node10, node9))), null);
+        node5.tell(new InitNode(new ArrayList<>(List.of(node2))), null);
+        node6.tell(new InitNode(new ArrayList<>(List.of(node2))), null);
+        node7.tell(new InitNode(new ArrayList<>(List.of(node3))), null);
+        node8.tell(new InitNode(new ArrayList<>(List.of(node3))), null);
+        node9.tell(new InitNode(new ArrayList<>(List.of(node4))), null);
+        node10.tell(new InitNode(new ArrayList<>(List.of(node4))), null);
 
-        node6.tell(new HolderInfo(Boolean.TRUE,6), null);
+        node6.tell(new HolderInfo(Boolean.TRUE, 6), null);
 
         try {
             System.out.println(">>> Press ENTER to start the simulation <<<");
@@ -50,19 +50,20 @@ public class RaymondAlg {
             node5.tell(new StartRequest(), null);
             node1.tell(new StartRequest(), null);
             node1.tell(new Fail(), null);
+
             try {
                 Thread.sleep(2000);
-            }catch (InterruptedException e) {
-                System.out.printf("Interr exc"); 
+            } catch (InterruptedException e) {
+                System.out.printf("Interr exc");
             }
 
             node9.tell(new StartRequest(), null);
+            node3.tell(new StartRequest(), null);
             node3.tell(new StartRequest(), null);
             node4.tell(new StartRequest(), null);
             node6.tell(new StartRequest(), null);
             node2.tell(new StartRequest(), null);
             node8.tell(new StartRequest(), null);
-            
 
             System.in.read();
 
