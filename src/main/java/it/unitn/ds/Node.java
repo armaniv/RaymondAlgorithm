@@ -132,6 +132,7 @@ public class Node extends AbstractActor {
         });
     }
 
+    // inform the node that it wants to access the critical section
     private void onStartRequest(StartRequest m) {
         if (!this.failed) {
             this.selfRequests++;
@@ -169,7 +170,7 @@ public class Node extends AbstractActor {
     }
 
     // simulates the failure of the node (clean local information of the node). Launches also the recovery phase
-    private void onFailMsg(Fail m) {
+    private void onFail(Fail m) {
         // inform itself about failure
         this.failed = Boolean.TRUE;
 
@@ -357,7 +358,7 @@ public class Node extends AbstractActor {
                 .match(StartRequest.class, this::onStartRequest)
                 .match(Request.class, this::onRequestMsg)
                 .match(Privilege.class, this::onPrivilegeMsg)
-                .match(Fail.class, this::onFailMsg)
+                .match(Fail.class, this::onFail)
                 .match(Restart.class, this::onRestart)
                 .match(Advise.class, this::onAdvise)
                 .match(InitNode.class, this::onInitNode)
