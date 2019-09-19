@@ -49,6 +49,7 @@ public class RaymondAlg {
             node7.tell(new StartRequest(), null);
             node5.tell(new StartRequest(), null);
             node1.tell(new StartRequest(), null);
+            node1.tell(new StartRequest(), null);
             node1.tell(new Fail(), null);
 
             try {

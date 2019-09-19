@@ -20,7 +20,8 @@ public class Node extends AbstractActor {
     private Boolean recovering;                 // signals to itself if a recovering phase is on going
     private Boolean failed;                     // used to signal to itself that the node is simulating a failure, 
                                                 // allows to ignore messages reception during failure
-    private int selfRequests = 0;                // count how many times a node wants to access the critical session
+    private int selfRequests = 0;               // count how many times a node wants to access the critical section
+                                                // this variable is assumed to be permanent also in case of crash
     private HashMap<ActorRef, Advise> contacted_neighbors; // used only if recovering==TRUE to collect data useful for recover from failure
     private ArrayList<ActorRef> neighbors;      // local info about the tree structure, only neighbor nodes
 
@@ -172,12 +173,17 @@ public class Node extends AbstractActor {
         // inform itself about failure
         this.failed = Boolean.TRUE;
 
+        System.out.printf("####### Node %02d FAILED #######\n", this.id);
+
+        // print the data that are present before their deletion (due to the simulated crash)
+        System.out.printf("#### Node %02d data on fail: {holder:%s, asked:%b, req_q size: %02d}####\n", this.id,
+                this.holder == getSelf() ? this.id : "neighbor", this.asked, this.request_q.size());
+
         // delete any previous knowledge about the algorithm status 
         this.request_q = new LinkedList<>();
         this.using = Boolean.FALSE;
         this.asked = Boolean.FALSE;
         this.holder = null;
-        System.out.printf("####### Node %02d FAILED #######\n", this.id);
 
         // schedule a future message to be sent to itself in order to exit from Failure after FDURATION milliseconds
         // and start Recover phase
@@ -277,20 +283,18 @@ public class Node extends AbstractActor {
             elapsedTime = (new Date()).getTime() - startTime;
         }
 
-        System.out.printf("#### Node %02d exit the Critical Section ####\n", this.id);
-
+        this.selfRequests--;
         this.using = Boolean.FALSE;
 
-        this.selfRequests--;
+        System.out.printf("#### Node %02d exit the Critical Section ####\n", this.id);
 
         // if self needs more accesses to critical section, enqueue it again in the request queue
         if (this.selfRequests > 0) {
             this.request_q.add(getSelf());
         }
+
         assignPrivilege();
         makeRequest();
-
-
     }
 
     private Boolean collectedAllAdvises() {
@@ -304,6 +308,11 @@ public class Node extends AbstractActor {
 
     private void inferStatus() {
         Boolean holder_for_all = Boolean.TRUE;
+
+        // if the node has requested the token for itself
+        if (this.selfRequests > 0) {
+            this.request_q.add(getSelf());
+        }
 
         for (ActorRef neighbor : contacted_neighbors.keySet()) {
             Advise advise = contacted_neighbors.get(neighbor);
@@ -357,4 +366,3 @@ public class Node extends AbstractActor {
                 .build();
     }
 }
-
