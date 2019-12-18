@@ -39,32 +39,32 @@ public class RaymondAlg {
         node9.tell(new InitNode(new ArrayList<>(List.of(node4))), null);
         node10.tell(new InitNode(new ArrayList<>(List.of(node4))), null);
 
-        node6.tell(new HolderInfo(Boolean.TRUE, 6), null);
+        node1.tell(new HolderInfo(Boolean.TRUE, 1), null);
+
+
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            System.out.printf("Interr exc");
+        }
 
         try {
             System.out.println(">>> Press ENTER to start the simulation <<<");
             System.in.read();
 
-            node10.tell(new StartRequest(), null);
-            node7.tell(new StartRequest(), null);
+            
+            node1.tell(new StartRequest(), null);
+
             node5.tell(new StartRequest(), null);
-            node1.tell(new StartRequest(), null);
-            node1.tell(new StartRequest(), null);
-            node1.tell(new Fail(), null);
+            node6.tell(new StartRequest(), null);
 
             try {
-                Thread.sleep(2000);
+                Thread.sleep(1000);
             } catch (InterruptedException e) {
                 System.out.printf("Interr exc");
             }
 
-            node9.tell(new StartRequest(), null);
-            node3.tell(new StartRequest(), null);
-            node3.tell(new StartRequest(), null);
-            node4.tell(new StartRequest(), null);
-            node6.tell(new StartRequest(), null);
-            node2.tell(new StartRequest(), null);
-            node8.tell(new StartRequest(), null);
+            node2.tell(new Fail(), null);
 
             System.in.read();
 

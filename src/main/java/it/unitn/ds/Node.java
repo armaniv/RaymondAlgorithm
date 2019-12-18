@@ -10,7 +10,7 @@ import java.time.Duration;
 
 
 public class Node extends AbstractActor {
-    final static int CSDURATION = 2000;         // the duration (in milliseconds) of the critical session
+    final static int CSDURATION = 4000;         // the duration (in milliseconds) of the critical session
     final static int FDURATION = 2000;          // the duration (in milliseconds) of the FAILURE
     private final int id;                       // node id (not really necessary)
     private ActorRef holder;                    // relative position of the privileged node
